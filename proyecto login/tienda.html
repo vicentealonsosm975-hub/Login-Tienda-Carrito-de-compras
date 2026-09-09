@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tienda Online</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+body{background:#f4f4f4}
+
+header{
+    background:#111;
+    color:#fff;
+    padding:15px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.cart-icon{
+    cursor:pointer;
+    position:relative;
+    font-size:20px;
+}
+
+.cart-count{
+    position:absolute;
+    top:-8px;
+    right:-10px;
+    background:red;
+    color:#fff;
+    font-size:12px;
+    padding:3px 6px;
+    border-radius:50%;
+}
+
+.container{
+    padding:20px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:20px;
+}
+
+.product{
+    background:#fff;
+    padding:15px;
+    border-radius:10px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+    text-align:center;
+}
+
+.product img{
+    width:100%;
+    height:150px;
+    object-fit:cover;
+}
+
+button{
+    padding:8px 12px;
+    border:none;
+    border-radius:5px;
+    cursor:pointer;
+    margin-top:5px;
+}
+
+.add-btn{background:#28a745;color:white}
+.remove-btn{background:crimson;color:white}
+.checkout-btn{background:#007bff;color:white;width:100%}
+
+.cart{
+    position:fixed;
+    right:-400px;
+    top:0;
+    width:350px;
+    height:100%;
+    background:white;
+    padding:20px;
+    transition:0.3s;
+    overflow-y:auto;
+    box-shadow:-2px 0 10px rgba(0,0,0,0.2);
+}
+
+.cart.active{right:0}
+
+.cart-item{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:10px;
+}
+
+.total{font-weight:bold;margin:10px 0}
+
+.modal{
+    position:fixed;
+    top:0;left:0;
+    width:100%;height:100%;
+    background:rgba(0,0,0,0.6);
+    display:none;
+    justify-content:center;
+    align-items:center;
+}
+
+.modal-content{
+    background:white;
+    padding:20px;
+    width:300px;
+    border-radius:10px;
+}
+
+.modal-content input{
+    width:100%;
+    padding:8px;
+    margin-bottom:10px;
+}
+</style>
+</head>
+<body>
+
+<header>
+    <h1>Tienda Online</h1>
+    <div class="cart-icon" onclick="toggleCart()">
+        🛒
+        <span class="cart-count" id="cart-count">0</span>
+    </div>
+</header>
+
+<div class="container" id="product-list"></div>
+
+<div class="cart" id="cart">
+    <h2>Carrito</h2>
+    <div id="cart-items"></div>
+    <div class="total">Total: $<span id="total">0</span></div>
+    <button class="checkout-btn" onclick="openCheckout()">Finalizar Compra</button>
+</div>
+
+<!-- Modal Pago -->
+<div class="modal" id="payment-modal">
+    <div class="modal-content">
+        <h3>Datos de Pago</h3>
+        <input type="text" id="name" placeholder="Nombre Completo" required>
+        <input type="text" id="card" placeholder="Número de Tarjeta" required>
+        <input type="text" id="expiry" placeholder="MM/AA" required>
+        <input type="text" id="cvv" placeholder="CVV" required>
+        <button class="checkout-btn" onclick="processPayment()">Pagar</button>
+    </div>
+</div>
+
+<script>
+const products=[
+{id:1,name:"Laptop",price:900,img:"https://picsum.photos/300/200?1"},
+{id:2,name:"Smartphone",price:600,img:"https://picsum.photos/300/200?2"},
+{id:3,name:"Auriculares",price:120,img:"https://picsum.photos/300/200?3"},
+{id:4,name:"Smartwatch",price:250,img:"https://picsum.photos/300/200?4"}
+];
+
+let cart=JSON.parse(localStorage.getItem("cart"))||[];
+
+const productList=document.getElementById("product-list");
+const cartItems=document.getElementById("cart-items");
+const totalElement=document.getElementById("total");
+const cartCount=document.getElementById("cart-count");
+const cartContainer=document.getElementById("cart");
+const modal=document.getElementById("payment-modal");
+
+function renderProducts(){
+productList.innerHTML="";
+products.forEach(p=>{
+productList.innerHTML+=`
+<div class="product">
+<img src="${p.img}">
+<h3>${p.name}</h3>
+<p>$${p.price}</p>
+<button class="add-btn" onclick="addToCart(${p.id})">Agregar</button>
+</div>`;
+});
+}
+
+function addToCart(id){
+const product=products.find(p=>p.id===id);
+const item=cart.find(p=>p.id===id);
+if(item){item.quantity++}
+else{cart.push({...product,quantity:1})}
+updateCart();
+}
+
+function removeFromCart(id){
+cart=cart.filter(item=>item.id!==id);
+updateCart();
+}
+
+function changeQuantity(id,amount){
+const item=cart.find(p=>p.id===id);
+item.quantity+=amount;
+if(item.quantity<=0){removeFromCart(id)}
+else{updateCart()}
+}
+
+function updateCart(){
+cartItems.innerHTML="";
+let total=0;
+let count=0;
+
+cart.forEach(item=>{
+total+=item.price*item.quantity;
+count+=item.quantity;
+
+cartItems.innerHTML+=`
+<div class="cart-item">
+<div>${item.name} x${item.quantity}<br>$${item.price*item.quantity}</div>
+<div>
+<button onclick="changeQuantity(${item.id},1)">+</button>
+<button onclick="changeQuantity(${item.id},-1)">-</button>
+<button class="remove-btn" onclick="removeFromCart(${item.id})">X</button>
+</div>
+</div>`;
+});
+
+totalElement.textContent=total;
+cartCount.textContent=count;
+localStorage.setItem("cart",JSON.stringify(cart));
+}
+
+function toggleCart(){
+cartContainer.classList.toggle("active");
+}
+
+function openCheckout(){
+if(cart.length===0){
+alert("El carrito está vacío");
+return;
+}
+modal.style.display="flex";
+}
+
+function processPayment(){
+const name=document.getElementById("name").value;
+const card=document.getElementById("card").value;
+
+if(name===""||card===""){
+alert("Completa los datos");
+return;
+}
+
+alert("Pago realizado con éxito 🎉");
+cart=[];
+updateCart();
+modal.style.display="none";
+localStorage.removeItem("cart");
+}
+
+renderProducts();
+updateCart();
+</script>
+
+</body>
+</html>
